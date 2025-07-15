@@ -2,6 +2,7 @@ package com.jovan.usercenter.service;
 
 import com.jovan.usercenter.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.jovan.usercenter.model.request.UserUpdateRequest;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -40,4 +41,15 @@ public interface UserService extends IService<User> {
      * @return 脱敏用户
      */
     User getSafetyUser(User user);
+
+    /**
+     * 用户注销
+     *
+     * @return 1-成功， -1失败
+     */
+    int userLogout(HttpServletRequest request);
+
+    User userUpdate(UserUpdateRequest userUpdateRequest);
 }
+
+

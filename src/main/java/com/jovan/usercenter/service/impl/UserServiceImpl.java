@@ -2,6 +2,9 @@ package com.jovan.usercenter.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.jovan.usercenter.common.ErrorCode;
+import com.jovan.usercenter.exception.BusinessException;
+import com.jovan.usercenter.model.request.UserUpdateRequest;
 import com.jovan.usercenter.service.UserService;
 import com.jovan.usercenter.model.domain.User;
 
@@ -29,24 +32,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
         // 校验
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
-            return -1;
+            throw new BusinessException(ErrorCode.NULL_ERROR, "账号或密码不得为空");
         }
         if (userAccount.length() < 4) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "账号长度不得小于四位");
         }
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "密码长度不得小于8位");
         }
 
         // 账户不能包含特殊字符
         String validPattern = "^[a-zA-Z0-9_]+$";
         if (!userAccount.matches(validPattern)) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "账号不能包含特殊字符");
         }
 
         //密码和校验密码需相同
         if (!userPassword.equals(checkPassword)) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "两次密码输入不一致");
         }
 
         // 账户不能重复
@@ -55,7 +58,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         long count = this.count(queryWrapper);
         if (count > 0) {
-            return -1;
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "账号名不得重复");
         }
 
         //对密码进行加密
@@ -67,8 +70,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setUserPassword(hashedPassword);
         boolean saveResult = this.save(user);
         if (!saveResult) {
-            return -1;
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "插入数据失败");
         }
+        //返回用户id
         return user.getId();
     }
 
@@ -76,20 +80,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public User userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         // 校验
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-            // todo 修改为自定义异常
-            return null;
+            throw new BusinessException(ErrorCode.NULL_ERROR, "用户名或密码为空");
         }
         if (userAccount.length() < 4) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "用户名不得小于四位");
         }
         if (userPassword.length() < 8) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "密码不得小于八位");
         }
 
         // 账户不能包含特殊字符
         String validPattern = "^[a-zA-Z0-9_]+$";
         if (!userAccount.matches(validPattern)) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "用户名不得包含特殊字符");
         }
 
         //校验用户是否存在
@@ -97,15 +100,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq("user_account", userAccount);
         long count = this.count(queryWrapper);
         if (count == 0) {
-            return null;
+            throw new BusinessException(ErrorCode.NULL_ERROR, "用户名不存在");
         }
 
         //校验密码是否正确
         User user = this.getOne(queryWrapper);
         String hashedPassword = user.getUserPassword();
         if (!BCrypt.checkpw(userPassword, hashedPassword)) {
-            log.info("Wrong password!");
-            return null;
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "用户名或密码错误");
         }
 
         //用户脱敏
@@ -140,6 +142,39 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         safetyUser.setCreateTime(user.getCreateTime());
 
         return safetyUser;
+    }
+
+    @Override
+    public int userLogout(HttpServletRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "HTTP请求为空");
+        }
+        request.getSession().removeAttribute(USER_LOGIN_STATE);
+        return 1;
+    }
+
+    @Override
+    public User userUpdate(UserUpdateRequest userUpdateRequest) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("id", userUpdateRequest.getId());
+
+        User existingUser = this.getOne(queryWrapper);
+        if (existingUser == null) {
+            throw new BusinessException(ErrorCode.NULL_ERROR, "用户不存在");
+        }
+        // 更新用户信息
+        existingUser.setNickname(userUpdateRequest.getNickName());
+        existingUser.setAvatarUrl(userUpdateRequest.getAvatarUrl());
+        existingUser.setGender(userUpdateRequest.getGender());
+        existingUser.setPhone(userUpdateRequest.getPhone());
+        existingUser.setEmail(userUpdateRequest.getEmail());
+        boolean updateResult = this.updateById(existingUser);
+        if (!updateResult) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新用户信息失败");
+        }
+        // 返回更新后的用户信息
+        return getSafetyUser(existingUser);
+
     }
 }
 
