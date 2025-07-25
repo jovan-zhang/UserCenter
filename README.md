@@ -6,12 +6,6 @@
 
 ## 常用接口
 
-### 查找所有用户
-浏览器访问:http://117.72.168.65/api/user/search ，返回用户未登录即为成功
-或者使用curl命令，POST方法建议使用其他工具
-```shell
-curl http://117.72.165.85/api/user/search
-```
 ### 登录
 
 POST http://117.72.168.65/api/user/login
@@ -33,3 +27,6 @@ Content-Type: application/json
 "checkPassword": "12345678"
 }
 ```
+
+### 查找所有用户
+GET http://117.72.168.65/api/user/search
